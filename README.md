@@ -1,6 +1,7 @@
 # Say!
 
 An Obsidian plugin that awakens the built-in TTS engine, and lets Obsidian say the word in several languages.
+
 Note: this plugin is not available on Android devices.
 
 ## How to install
