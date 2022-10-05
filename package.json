@@ -1,6 +1,6 @@
 {
 	"name": "obsidian-say",
-	"version": "0.0.1",
+	"version": "0.0.2",
 	"description": "An Obsidian plugin for awaking the built-in TTS engine. (Not available on Android)",
 	"main": "main.js",
 	"scripts": {
