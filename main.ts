@@ -61,7 +61,6 @@ const askSelectString = (app: App, message: string, items: string[]): Promise<st
 	});
 };
 
-
 // For shorthand.
 const ss = window.speechSynthesis;
 
@@ -80,7 +79,7 @@ export default class SayPlugin extends Plugin {
 	speak(strMessage: string) {
 		if (ss.speaking) ss.cancel();
 		const utter = new SpeechSynthesisUtterance(strMessage);
-		const voice = this.voiceList.find(e => e.name == this.settings.voiceName);
+		const voice = this.voiceList.find(e => `${e.lang}:${e.name}` == this.settings.voiceName);
 		if (voice) {
 			utter.lang = voice.lang;
 			utter.voice = voice;
@@ -96,25 +95,31 @@ export default class SayPlugin extends Plugin {
 			this.voiceList = [...new Set([...this.voiceList, voice])].sort((a, b) => a.lang.localeCompare(b.lang));
 		}
 	}
+
 	async selectVoices(sayItAgain: boolean) {
 		const voices = {} as { [key: string]: string[] };
-		voices["recent"] = [...this.settings.recentVoices];
+		// Show only available on this device.
+		voices["recent"] = [...this.settings.recentVoices].filter(voiceName => this.voiceList.find(e => `${e.lang}:${e.name}` == voiceName));
 		for (const voice of this.voiceList) {
-			const lang = voice.lang;
-			if (!(lang in voices)) {
-				voices[lang] = [];
+			const key = voice.lang;
+			if (!(key in voices)) {
+				voices[key] = [];
 			}
-			voices[lang].push(voice.name);
+			voices[key].push(`${voice.lang}:${voice.name}`);
 		}
-		const lang = await askSelectString(this.app, "Select locale of the voice", Object.keys(voices));
-		const voice = await askSelectString(this.app, "Select locale of the voice", voices[lang]);
-		if (voice) {
-			if (this.settings.recentVoices.first() != voice) {
-				this.settings.recentVoices.unshift(voice);
+		const key = await askSelectString(this.app, "Select locale of the voice", Object.keys(voices));
+		const voiceName = await askSelectString(this.app, "Select voice", voices[key]);
+		if (voiceName) {
+			const voice = this.voiceList.find(e => `${e.lang}:${e.name}` == voiceName);
+			if (!voice) {
+				return;
+			}
+			if (this.settings.recentVoices.first() != voiceName) {
+				this.settings.recentVoices.unshift(voiceName);
 				this.settings.recentVoices = this.settings.recentVoices.filter(e => `${e}`.trim() != "");
 				this.settings.recentVoices = this.settings.recentVoices.slice(0, 10);
 			}
-			this.settings.voiceName = voice;
+			this.settings.voiceName = voiceName;
 			await this.saveSettings();
 			if (sayItAgain) {
 				this.speak(this.lastSpokenWord);
@@ -189,6 +194,21 @@ export default class SayPlugin extends Plugin {
 			editorCallback: (editor: Editor, view: MarkdownView) => {
 				this.lastSpokenWord = editor.getSelection();
 				this.speak(this.lastSpokenWord);
+			}
+		});
+		this.app.workspace.onLayoutReady(async () => {
+			const voiceName = this.settings.recentVoices.first();
+			if (voiceName) {
+				const voice = this.voiceList.find(e => `${e.lang}:${e.name}` == voiceName);
+				if (voice) {
+					this.settings.voiceName = `${voice.lang}:${voice.name}`;
+				} else {
+					const locale = voiceName.split(":")[0];
+					const sameLocaleVoice = this.voiceList.find(e => e.lang == locale);
+					if (sameLocaleVoice) {
+						this.settings.voiceName = `${sameLocaleVoice.lang}:${sameLocaleVoice.name}`;
+					}
+				}
 			}
 		});
 	}
